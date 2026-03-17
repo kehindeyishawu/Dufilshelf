@@ -1,18 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
 import mongoose from 'mongoose';
-import cors from 'cors';
+import path from 'path';
 
 import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// In dev the Vite proxy handles cross-origin; in prod the Vercel frontend origin must be allowed explicitly
-app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
-}));
 
 app.use(express.json());
 
@@ -24,6 +19,16 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(err.status || 500).json({ message: err.message || 'Internal server error' });
 });
+
+// Serve the React build in production
+if (process.env.NODE_ENV === 'production') {
+  const clientDist = path.join(process.cwd(), '../client/dist');
+  app.use(express.static(clientDist));
+  // Any route that isn't /api/* gets the React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 mongoose
   .connect(process.env.MONGO_URI)
